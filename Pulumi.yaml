@@ -1,0 +1,92 @@
+name: pulumi-k8s-issue
+description: Replicate an issue when retrieving status from k8s.
+runtime: yaml
+config: {'pulumi:tags': {value: {'pulumi:template': yaml}}}
+
+variables:
+  namespace: dev
+  docker:
+    platforms:
+    - linux/amd64
+    - linux/arm64
+    push: true
+    registries:
+    - address: ${docker-registry-service.status.loadBalancer.ingress[0].ip}
+  docker-registry:
+    name: docker-registry
+    image: docker.io/registry:2.8.3
+    port:
+      name: http
+      target: 5000
+  names:
+    containers:
+      docker-registry: ${docker-registry.name}--container
+    pods:
+      docker-registry: ${docker-registry.name}--pod
+    services:
+      docker-registry: ${docker-registry.name}--service
+
+resources:
+  custom-namespace:
+    type: kubernetes:core/v1:Namespace
+    properties:
+      metadata:
+        name: ${namespace}
+        labels:
+          name: ${namespace}
+  docker-registry-deployment:
+    type: kubernetes:apps/v1:Deployment
+    properties:
+      metadata:
+        namespace: ${namespace}
+        name: ${names.pods.docker-registry}
+        labels:
+          app: ${names.pods.docker-registry}
+      spec:
+        selector:
+          matchLabels:
+            app: ${names.pods.docker-registry}
+        template:
+          metadata:
+            labels:
+              app: ${names.pods.docker-registry}
+          spec:
+            containers:
+              - name: ${names.containers.docker-registry}
+                image: ${docker-registry.image}
+                ports:
+                  - name: ${docker-registry.port.name}
+                    containerPort: ${docker-registry.port.target}
+  docker-registry-service:
+    type: kubernetes:core/v1:Service
+    options:
+      dependsOn:
+      - ${docker-registry-deployment}
+    properties:
+      metadata:
+        namespace: ${namespace}
+        name: ${names.services.docker-registry}
+      spec:
+        ports:
+          - protocol: TCP
+            name: ${docker-registry.port.name}
+            port: ${docker-registry.port.target}
+        selector:
+          app: ${names.pods.docker-registry}
+  docker-image-builder:
+    type: docker-build:Image
+    options:
+      dependsOn:
+      - ${docker-registry-service}
+    properties:
+      dockerfile:
+        inline: |
+          FROM alpine:3.6
+          RUN echo "buildingbuildingbuilding"
+      platforms: ${docker.platforms}
+      push: ${docker.push}
+      registries: ${docker.registries}
+      tags:
+      - ${docker.build.registry}/namespace/repository:tag
+
+outputs: {}
