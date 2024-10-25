@@ -11,7 +11,7 @@ variables:
     - linux/arm64
     push: true
     registries:
-    - address: ${docker-registry-service.status.loadBalancer.ingress[0].ip}
+#    - address: ${docker-registry-service.status.loadBalancer.ingress[0].ip}
   docker-registry:
     name: docker-registry
     image: docker.io/registry:2.8.3
@@ -73,20 +73,21 @@ resources:
             port: ${docker-registry.port.target}
         selector:
           app: ${names.pods.docker-registry}
-  docker-image-builder:
-    type: docker-build:Image
-    options:
-      dependsOn:
-      - ${docker-registry-service}
-    properties:
-      dockerfile:
-        inline: |
-          FROM alpine:3.6
-          RUN echo "buildingbuildingbuilding"
-      platforms: ${docker.platforms}
-      push: ${docker.push}
-      registries: ${docker.registries}
-      tags:
-      - ${docker.build.registry}/namespace/repository:tag
+#  docker-image-builder:
+#    type: docker-build:Image
+#    options:
+#      dependsOn:
+#      - ${docker-registry-service}
+#    properties:
+#      dockerfile:
+#        inline: |
+#          FROM alpine:3.6
+#          RUN echo "buildingbuildingbuilding"
+#      platforms: ${docker.platforms}
+#      push: ${docker.push}
+#      registries: ${docker.registries}
+#      tags:
+#      - ${docker.build.registry}/namespace/repository:tag
 
-outputs: {}
+outputs:
+  docker-registry-ip: ${docker-registry-service.status.loadBalancer.ingress[0].ip}
